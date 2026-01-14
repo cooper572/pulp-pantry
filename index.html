@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulp Pantry - AI Meal Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=6">
+</head>
+
+<body> <svg class="hidden-svg">
+        <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+            <feComponentTransfer>
+                <feFuncA type="linear" slope="0.1" />
+            </feComponentTransfer>
+            <feBlend in="SourceGraphic" operator="over" />
+        </filter>
+    </svg>
+    <div class="grain-overlay"> <svg width="100%" height="100%">
+            <rect width="100%" height="100%" filter="url(#grain)" />
+        </svg> </div>
+    <div class="assemblage-container">
+        <header class="header">
+            <h1>Pulp<br>Pantry</h1>
+        </header>
+        <section class="input-section">
+            <h2>Inventory / Scraps Available</h2> <textarea id="ingredients"
+                placeholder="2 Eggs, half an onion, stale sourdough, some wilted spinach, chili flakes..."></textarea>
+            <div class="controls"> <button class="btn-generate" id="generateBtn">ASSEMBLE MEALS</button> </div>
+        </section>
+        <div id="loader" class="loader">REDACTING UNNECESSARY CALORIES...</div>
+        <main class="output-grid" id="outputGrid"> <!-- Meal 1 -->
+            <article class="meal-card" onclick="openModal('breakfast')"> <span class="meal-tag">01. BREAKFAST</span>
+                <h3 class="meal-title" id="m1-title">---</h3>
+                <p class="meal-instructions" id="m1-desc">Enter ingredients above to generate your tactile meal plan.
+                </p>
+            </article> <!-- Meal 2 -->
+            <article class="meal-card" onclick="openModal('lunch')"> <span class="meal-tag">02. LUNCH</span>
+                <h3 class="meal-title" id="m2-title">---</h3>
+                <p class="meal-instructions" id="m2-desc">Three curated plates from one inventory.</p>
+            </article> <!-- Meal 3 -->
+            <article class="meal-card" onclick="openModal('dinner')"> <span class="meal-tag">03. DINNER</span>
+                <h3 class="meal-title" id="m3-title">---</h3>
+                <p class="meal-instructions" id="m3-desc">Waste nothing, taste everything.</p>
+            </article>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <span class="modal-tag" id="modalTag">MEAL</span>
+            <h2 class="modal-title" id="modalTitle">Recipe Title</h2>
+            <div class="modal-instructions" id="modalInstructions">Instructions will appear here...</div>
+        </div>
+    </div>
+    <script>
+        let mealsData = {
+            breakfast: { title: "---", instructions: "Enter ingredients above to generate your tactile meal plan." },
+            lunch: { title: "---", instructions: "Three curated plates from one inventory." },
+            dinner: { title: "---", instructions: "Waste nothing, taste everything." }
+        };
+
+        async function generateMeals() {
+            const ingredients = document.getElementById("ingredients").value;
+
+            if (!ingredients) {
+                alert("Please drop some ingredients onto the list first.");
+                return;
+            }
+
+            const loader = document.getElementById("loader");
+            const grid = document.getElementById("outputGrid");
+
+            loader.style.display = "block";
+            grid.classList.remove("visible");
+
+            try {
+                const res = await fetch("http://localhost:3000/generate-meals", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ingredients })
+                });
+
+                const data = await res.json();
+
+                // Store full data
+                mealsData.breakfast = data.breakfast;
+                mealsData.lunch = data.lunch;
+                mealsData.dinner = data.dinner;
+
+                // Update cards with truncated preview
+                document.getElementById("m1-title").innerText = data.breakfast.title;
+                document.getElementById("m1-desc").innerHTML = data.breakfast.instructions;
+
+                document.getElementById("m2-title").innerText = data.lunch.title;
+                document.getElementById("m2-desc").innerHTML = data.lunch.instructions;
+
+                document.getElementById("m3-title").innerText = data.dinner.title;
+                document.getElementById("m3-desc").innerHTML = data.dinner.instructions;
+
+                loader.style.display = "none";
+                grid.classList.add("visible");
+
+            } catch (err) {
+                loader.style.display = "none";
+                alert("Failed to generate meals");
+                console.error(err);
+            }
+        }
+
+        function openModal(mealType) {
+            const modal = document.getElementById("modalOverlay");
+            const modalTag = document.getElementById("modalTag");
+            const modalTitle = document.getElementById("modalTitle");
+            const modalInstructions = document.getElementById("modalInstructions");
+
+            const tagMap = {
+                breakfast: "01. BREAKFAST",
+                lunch: "02. LUNCH",
+                dinner: "03. DINNER"
+            };
+
+            modalTag.innerText = tagMap[mealType];
+            modalTitle.innerText = mealsData[mealType].title;
+            modalInstructions.innerHTML = mealsData[mealType].instructions;
+
+            // Small delay for smooth transition
+            requestAnimationFrame(() => {
+                modal.classList.add("active");
+                document.body.style.overflow = "hidden";
+            });
+        }
+
+        function closeModal(event) {
+            if (event && event.target !== document.getElementById("modalOverlay")) {
+                return;
+            }
+
+            const modal = document.getElementById("modalOverlay");
+            modal.classList.remove("active");
+            document.body.style.overflow = "auto";
+        }
+
+        document.getElementById("generateBtn").addEventListener("click", generateMeals);
+
+        // Close modal on Escape key
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                const modal = document.getElementById("modalOverlay");
+                if (modal.classList.contains("active")) {
+                    closeModal();
+                }
+            }
+        });
+
+        function closeModal(event) {
+            // Check if the click is on the overlay itself and not its children
+            if (event && event.target !== document.getElementById("modalOverlay")) {
+                return;
+            }
+
+            const modal = document.getElementById("modalOverlay");
+            modal.classList.remove("active");
+            document.body.style.overflow = "auto";
+        }
+    </script>
+</body>
+
+</html>
