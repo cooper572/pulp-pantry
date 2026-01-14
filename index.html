@@ -84,7 +84,7 @@
             grid.classList.remove("visible");
 
             try {
-                const res = await fetch("http://localhost:3000/generate-meals", {
+                const res = await fetch("/api/generate-meals", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ingredients })
